@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useContext, createContext, useMemo } from 'react';
 import { HashRouter, Routes, Route, Link, Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { 
@@ -60,6 +59,23 @@ const Toast = ({ message, type, onClose }: { message: string, type: 'success' | 
     </div>
   );
 };
+
+// Fixed Modal component by making children optional and using function declaration for hoisting to resolve TypeScript "missing children property" errors
+function Modal({ isOpen, onClose, title, children }: { isOpen: boolean, onClose: () => void, title: string, children?: React.ReactNode }) {
+  const { dir } = useContext(LanguageContext);
+  if (!isOpen) return null;
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-fade-in-up">
+      <div className="bg-slate-900 border border-slate-700 w-full max-w-lg rounded-3xl overflow-hidden shadow-2xl flex flex-col">
+        <div className={`p-6 border-b border-slate-800 flex justify-between items-center ${dir === 'rtl' ? 'flex-row-reverse' : ''}`}>
+          <h2 className="text-xl font-black text-white uppercase tracking-tighter">{title}</h2>
+          <button onClick={onClose} className="p-2 text-slate-400 hover:text-white transition-all"><X size={20} /></button>
+        </div>
+        <div className={`p-8 max-h-[70vh] overflow-y-auto custom-scrollbar ${dir === 'rtl' ? 'text-right' : 'text-left'}`}>{children}</div>
+      </div>
+    </div>
+  );
+}
 
 const Navbar = () => {
   const { user, logout } = useContext(AuthContext);
@@ -828,6 +844,45 @@ const AdminDashboard = ({ onNotify }: { onNotify: (m: string, t: 'success' | 'in
     onNotify(t.toast_settings_updated, 'success');
   };
 
+  const handleSubmitCoupon = (e: any) => {
+    e.preventDefault();
+    const formData = new FormData(e.target);
+    const couponData: Coupon = {
+      id: editData?.id || `cpn-${Date.now()}`,
+      code: (formData.get('code') as string).toUpperCase(),
+      type: formData.get('type') as 'percentage' | 'fixed',
+      value: Number(formData.get('value')),
+      usageLimit: Number(formData.get('limit')),
+      usageCount: editData?.usageCount || 0,
+      isActive: true
+    };
+    if (editData) setCoupons(prev => prev.map(c => c.id === editData.id ? couponData : c));
+    else setCoupons(prev => [...prev, couponData]);
+    setModalType(null);
+    setEditData(null);
+    onNotify(t.settings_saved, 'success');
+  };
+
+  const handleSubmitCategory = (e: any) => {
+    e.preventDefault();
+    const formData = new FormData(e.target);
+    const categoryData: Category = {
+      id: editData?.id || `cat-${Date.now()}`,
+      name: formData.get('name') as string,
+      nameAr: formData.get('nameAr') as string
+    };
+    if (editData) setCategories(prev => prev.map(c => c.id === editData.id ? categoryData : c));
+    else setCategories(prev => [...prev, categoryData]);
+    setModalType(null);
+    setEditData(null);
+    onNotify(t.settings_saved, 'success');
+  };
+
+  const deleteCategory = (id: string) => {
+    setCategories(prev => prev.filter(c => c.id !== id));
+    onNotify(t.delete_item, 'info');
+  };
+
   return (
     <div className={`min-h-screen p-6 max-w-7xl mx-auto pt-24 pb-32 ${dir === 'rtl' ? 'text-right' : 'text-left'}`}>
       <div className={`flex flex-col md:flex-row justify-between mb-16 gap-6 ${dir === 'rtl' ? 'md:flex-row-reverse' : ''}`}>
@@ -968,6 +1023,81 @@ const AdminDashboard = ({ onNotify }: { onNotify: (m: string, t: 'success' | 'in
                      <td className={`px-8 py-6 ${dir === 'rtl' ? 'text-left' : 'text-right'} space-x-2`}>
                        <button onClick={() => { setEditData(p); setModalType('product'); }} className="p-2.5 text-slate-500 hover:text-white hover:bg-slate-700 rounded-xl transition-all"><Edit size={16}/></button>
                        <button onClick={() => { deleteProduct(p.id); onNotify(t.toast_removed_cart, 'info'); }} className="p-2.5 text-rose-500 hover:bg-rose-500/10 rounded-xl transition-all"><Trash2 size={16}/></button>
+                     </td>
+                   </tr>
+                 ))}
+               </tbody>
+             </table>
+           </div>
+        </div>
+      )}
+
+      {activeTab === 'categories' && (
+        <div className="space-y-6 animate-fade-in-up">
+           <div className={`flex justify-between items-center ${dir === 'rtl' ? 'flex-row-reverse' : ''}`}>
+             <button onClick={() => { setModalType('category'); setEditData(null); }} className={`bg-indigo-600 text-white px-8 py-4 rounded-2xl font-black uppercase text-[10px] flex items-center gap-2 hover:bg-indigo-500 transition-all shadow-xl shadow-indigo-600/20 ${dir === 'rtl' ? 'flex-row-reverse' : ''}`}><PlusCircle size={18}/> {t.add_item}</button>
+           </div>
+           <div className="bg-slate-800/20 rounded-3xl border border-slate-700/50 overflow-hidden shadow-2xl">
+             <table className="w-full text-left">
+               <thead className="bg-slate-900/60 text-[10px] font-black uppercase text-slate-500">
+                 <tr>
+                   <th className={`px-8 py-6 ${dir === 'rtl' ? 'text-right' : 'text-left'}`}>Name (EN)</th>
+                   <th className={`px-8 py-6 ${dir === 'rtl' ? 'text-right' : 'text-left'}`}>Name (AR)</th>
+                   <th className={`px-8 py-6 ${dir === 'rtl' ? 'text-right' : 'text-left'}`}>Items Count</th>
+                   <th className={`px-8 py-6 ${dir === 'rtl' ? 'text-left' : 'text-right'}`}>Actions</th>
+                 </tr>
+               </thead>
+               <tbody className="divide-y divide-slate-800">
+                 {categories.map(c => {
+                   const itemCount = products.filter(p => p.category === c.name).length;
+                   return (
+                     <tr key={c.id} className="hover:bg-slate-800/40 transition-colors group">
+                       <td className={`px-8 py-6 text-white font-black uppercase text-sm ${dir === 'rtl' ? 'text-right' : 'text-left'}`}>{c.name}</td>
+                       <td className={`px-8 py-6 text-white font-black text-sm ${dir === 'rtl' ? 'text-right' : 'text-left'}`}>{c.nameAr || '-'}</td>
+                       <td className={`px-8 py-6 text-slate-500 font-black text-xs uppercase tracking-widest ${dir === 'rtl' ? 'text-right' : 'text-left'}`}>{itemCount} Items</td>
+                       <td className={`px-8 py-6 ${dir === 'rtl' ? 'text-left' : 'text-right'} space-x-2`}>
+                         <button onClick={() => { setEditData(c); setModalType('category'); }} className="p-2.5 text-slate-500 hover:text-white hover:bg-slate-700 rounded-xl transition-all"><Edit size={16}/></button>
+                         <button onClick={() => deleteCategory(c.id)} className="p-2.5 text-rose-500 hover:bg-rose-500/10 rounded-xl transition-all"><Trash2 size={16}/></button>
+                       </td>
+                     </tr>
+                   );
+                 })}
+               </tbody>
+             </table>
+           </div>
+        </div>
+      )}
+
+      {activeTab === 'coupons' && (
+        <div className="space-y-6 animate-fade-in-up">
+           <div className={`flex justify-between items-center ${dir === 'rtl' ? 'flex-row-reverse' : ''}`}>
+             <button onClick={() => { setModalType('coupon'); setEditData(null); }} className={`bg-indigo-600 text-white px-8 py-4 rounded-2xl font-black uppercase text-[10px] flex items-center gap-2 hover:bg-indigo-500 transition-all shadow-xl shadow-indigo-600/20 ${dir === 'rtl' ? 'flex-row-reverse' : ''}`}><PlusCircle size={18}/> {t.add_item}</button>
+           </div>
+           <div className="bg-slate-800/20 rounded-3xl border border-slate-700/50 overflow-hidden shadow-2xl">
+             <table className="w-full text-left">
+               <thead className="bg-slate-900/60 text-[10px] font-black uppercase text-slate-500">
+                 <tr>
+                   <th className={`px-8 py-6 ${dir === 'rtl' ? 'text-right' : 'text-left'}`}>Code</th>
+                   <th className={`px-8 py-6 ${dir === 'rtl' ? 'text-right' : 'text-left'}`}>{t.discount_type}</th>
+                   <th className={`px-8 py-6 ${dir === 'rtl' ? 'text-right' : 'text-left'}`}>{t.discount_val}</th>
+                   <th className={`px-8 py-6 ${dir === 'rtl' ? 'text-right' : 'text-left'}`}>{t.usage_limit}</th>
+                   <th className={`px-8 py-6 ${dir === 'rtl' ? 'text-left' : 'text-right'}`}>Actions</th>
+                 </tr>
+               </thead>
+               <tbody className="divide-y divide-slate-800">
+                 {coupons.map(c => (
+                   <tr key={c.id} className="hover:bg-slate-800/40 transition-colors group">
+                     <td className={`px-8 py-6 text-white font-black uppercase text-sm ${dir === 'rtl' ? 'text-right' : 'text-left'}`}>{c.code}</td>
+                     <td className={`px-8 py-6 text-slate-500 text-xs font-black uppercase tracking-widest ${dir === 'rtl' ? 'text-right' : 'text-left'}`}>
+                       {c.type === 'percentage' ? t.percent : t.fixed}
+                     </td>
+                     <td className={`px-8 py-6 text-indigo-400 font-black ${dir === 'rtl' ? 'text-right' : 'text-left'}`}>{c.value} {c.type === 'fixed' ? t.currency : '%'}</td>
+                     <td className={`px-8 py-6 text-slate-500 text-xs font-black uppercase tracking-widest ${dir === 'rtl' ? 'text-right' : 'text-left'}`}>
+                       {c.usageCount} / {c.usageLimit}
+                     </td>
+                     <td className={`px-8 py-6 ${dir === 'rtl' ? 'text-left' : 'text-right'} space-x-2`}>
+                       <button onClick={() => { setEditData(c); setModalType('coupon'); }} className="p-2.5 text-slate-500 hover:text-white hover:bg-slate-700 rounded-xl transition-all"><Edit size={16}/></button>
+                       <button onClick={() => { setCoupons(prev => prev.filter(item => item.id !== c.id)); onNotify(t.delete_item, 'info'); }} className="p-2.5 text-rose-500 hover:bg-rose-500/10 rounded-xl transition-all"><Trash2 size={16}/></button>
                      </td>
                    </tr>
                  ))}
@@ -1260,6 +1390,47 @@ const AdminDashboard = ({ onNotify }: { onNotify: (m: string, t: 'success' | 'in
             <button type="submit" className="w-full bg-indigo-600 py-4 rounded-xl text-white font-black uppercase text-sm shadow-xl shadow-indigo-600/20">{t.save}</button>
          </form>
       </Modal>
+
+      <Modal isOpen={modalType === 'coupon'} onClose={() => { setModalType(null); setEditData(null); }} title={editData ? t.edit_item : t.add_item}>
+         <form onSubmit={handleSubmitCoupon} className="space-y-6">
+            <div className="space-y-2">
+               <label className={`text-[10px] font-black text-slate-500 uppercase tracking-widest px-1 block ${dir === 'rtl' ? 'text-right' : 'text-left'}`}>{t.coupon_label}</label>
+               <input name="code" defaultValue={editData?.code} required className={`w-full bg-slate-950 border border-slate-700 rounded-xl p-4 text-white font-bold uppercase ${dir === 'rtl' ? 'text-right' : 'text-left'}`} placeholder="PROMO2025" />
+            </div>
+            <div className="space-y-2">
+               <label className={`text-[10px] font-black text-slate-500 uppercase tracking-widest px-1 block ${dir === 'rtl' ? 'text-right' : 'text-left'}`}>{t.discount_type}</label>
+               <select name="type" defaultValue={editData?.type || 'percentage'} className={`w-full bg-slate-950 border border-slate-700 rounded-xl p-4 text-white font-bold ${dir === 'rtl' ? 'text-right' : 'text-left'}`}>
+                  <option value="percentage">{t.percent}</option>
+                  <option value="fixed">{t.fixed}</option>
+               </select>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className={`text-[10px] font-black text-slate-500 uppercase tracking-widest px-1 block ${dir === 'rtl' ? 'text-right' : 'text-left'}`}>{t.discount_val}</label>
+                <input name="value" type="number" defaultValue={editData?.value} required className={`w-full bg-slate-950 border border-slate-700 rounded-xl p-4 text-white font-bold ${dir === 'rtl' ? 'text-right' : 'text-left'}`} />
+              </div>
+              <div className="space-y-2">
+                <label className={`text-[10px] font-black text-slate-500 uppercase tracking-widest px-1 block ${dir === 'rtl' ? 'text-right' : 'text-left'}`}>{t.usage_limit}</label>
+                <input name="limit" type="number" defaultValue={editData?.usageLimit || 100} required className={`w-full bg-slate-950 border border-slate-700 rounded-xl p-4 text-white font-bold ${dir === 'rtl' ? 'text-right' : 'text-left'}`} />
+              </div>
+            </div>
+            <button type="submit" className="w-full bg-indigo-600 py-4 rounded-xl text-white font-black uppercase text-sm shadow-xl shadow-indigo-600/20">{t.save}</button>
+         </form>
+      </Modal>
+
+      <Modal isOpen={modalType === 'category'} onClose={() => { setModalType(null); setEditData(null); }} title={editData ? t.edit_item : t.add_item}>
+         <form onSubmit={handleSubmitCategory} className="space-y-6">
+            <div className="space-y-2">
+               <label className={`text-[10px] font-black text-slate-500 uppercase tracking-widest px-1 block ${dir === 'rtl' ? 'text-right' : 'text-left'}`}>Name (English)</label>
+               <input name="name" defaultValue={editData?.name} required className={`w-full bg-slate-950 border border-slate-700 rounded-xl p-4 text-white font-bold ${dir === 'rtl' ? 'text-right' : 'text-left'}`} placeholder="e.g. Gaming Cards" />
+            </div>
+            <div className="space-y-2">
+               <label className={`text-[10px] font-black text-slate-500 uppercase tracking-widest px-1 block ${dir === 'rtl' ? 'text-right' : 'text-left'}`}>Name (Arabic)</label>
+               <input name="nameAr" defaultValue={editData?.nameAr} className={`w-full bg-slate-950 border border-slate-700 rounded-xl p-4 text-white font-bold ${dir === 'rtl' ? 'text-right' : 'text-left'}`} placeholder="مثال: بطاقات الألعاب" />
+            </div>
+            <button type="submit" className="w-full bg-indigo-600 py-4 rounded-xl text-white font-black uppercase text-sm shadow-xl shadow-indigo-600/20">{t.save}</button>
+         </form>
+      </Modal>
     </div>
   );
 };
@@ -1298,7 +1469,7 @@ const LoginPage = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center p-6 animate-fade-in-up">
-      <div className="bg-slate-800/40 backdrop-blur-xl p-10 sm:p-12 rounded-[2.5rem] border border-slate-700/50 w-full max-w-md space-y-10 shadow-2xl">
+      <div className="bg-slate-800/40 backdrop-blur-xl p-10 sm:p-12 rounded-[2.5rem] border border-slate-700/50 w-full max-md space-y-10 shadow-2xl">
         <div className="text-center">
           <div className="w-16 h-16 rounded-2xl bg-indigo-600 flex items-center justify-center mx-auto mb-8 shadow-xl shadow-indigo-600/20 group hover:rotate-6 transition-transform">
             <Lock size={32} className="text-white" />
@@ -1395,7 +1566,7 @@ const RegisterPage = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center p-6 animate-fade-in-up">
-      <div className="bg-slate-800/40 backdrop-blur-xl p-10 sm:p-12 rounded-[2.5rem] border border-slate-700/50 w-full max-w-md space-y-10 shadow-2xl">
+      <div className="bg-slate-800/40 backdrop-blur-xl p-10 sm:p-12 rounded-[2.5rem] border border-slate-700/50 w-full max-md space-y-10 shadow-2xl">
         <div className="text-center">
           <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-600 to-purple-600 flex items-center justify-center mx-auto mb-8 shadow-xl shadow-indigo-600/20 group hover:scale-110 transition-transform">
             <UserPlus size={32} className="text-white" />
@@ -1483,22 +1654,6 @@ const WishlistPage = ({ onNotify }: { onNotify: (m: string, t: 'success' | 'erro
     </div>
   );
 }
-
-const Modal = ({ isOpen, onClose, title, children }: { isOpen: boolean, onClose: () => void, title: string, children: React.ReactNode }) => {
-  const { dir } = useContext(LanguageContext);
-  if (!isOpen) return null;
-  return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-fade-in-up">
-      <div className="bg-slate-900 border border-slate-700 w-full max-w-lg rounded-3xl overflow-hidden shadow-2xl flex flex-col">
-        <div className={`p-6 border-b border-slate-800 flex justify-between items-center ${dir === 'rtl' ? 'flex-row-reverse' : ''}`}>
-          <h2 className="text-xl font-black text-white uppercase tracking-tighter">{title}</h2>
-          <button onClick={onClose} className="p-2 text-slate-400 hover:text-white transition-all"><X size={20} /></button>
-        </div>
-        <div className={`p-8 max-h-[70vh] overflow-y-auto custom-scrollbar ${dir === 'rtl' ? 'text-right' : 'text-left'}`}>{children}</div>
-      </div>
-    </div>
-  );
-};
 
 // --- Main App ---
 
